@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ECG Triangle Simplex Visualizer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        svg { border: 1px solid #ccc; margin-top: 10px; }
+        .grid line {
+            stroke: lightgray;
+            stroke-dasharray: 3 3;
+        }
+        .plot-container {
+            width: 48%;
+        }
+    </style>
+</head>
+<body>
+    <h1>ECG Triangle Simplex Plot Visualizer</h1>
+
+    <!-- 横向上传容器 -->
+    <div style="display: flex; gap: 4%; flex-wrap: wrap; margin-bottom: 20px;">
+
+        <!-- 🔹 左图 Dataset A -->
+        <div class="plot-container">
+            
+            <div style="display: flex; align-items: center; gap: 12px;margin-bottom: 10px;">
+                <button id="customFileButton">Select ECG CSV File</button>
+                <div id="fileNameBox" style="
+                    min-width: 200px;
+                    padding: 6px 12px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    background-color: #f9f9f9;
+                    font-family: monospace;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                ">No file selected</div>
+            </div>
+
+            <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelected(event)">
+            
+            <label for="leadSelector">Select ECG Lead:</label>
+            <select id="leadSelector">
+                <option value="II">II</option>
+                <option value="V5">V5</option>
+                <option value="V2">V2</option>
+                <option value="V3">V3</option>
+                <option value="I">I</option>
+                <option value="III">III</option>
+            </select>
+            
+            <button id="uploadButton">Upload and Plot</button>
+            <label>Point Color:
+                <input type="color" id="colorPicker1" value="#4682B4">
+            </label>
+
+
+            <!-- ✅ 进度条 A -->
+            <div id="progressContainer" style="display: none; margin-top: 10px;">
+                <progress id="progressBar" value="0" max="100" style="width: 90%;"></progress>
+                <span id="progressLabel">Processing...</span>
+            </div>
+
+            <div id="plot" style="margin-top: 10px;"></div>
+        </div>
+
+        <!-- 🔹 新增右图 Dataset B -->
+        <div class="plot-container">
+            <div style="display: flex; align-items: center; gap: 12px;margin-bottom: 10px;">
+                <button id="customFileButton2">Select ECG CSV File</button>
+                <div id="fileNameBox2" style="
+                    min-width: 200px;
+                    padding: 6px 12px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    background-color: #f9f9f9;
+                    font-family: monospace;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                ">No file selected</div>
+            </div>
+
+            <input type="file" id="fileInput2" style="display: none;">
+            
+            <label for="lead2">Lead:</label>
+            <select id="lead2">
+                <option value="II">II</option>
+                <option value="V5">V5</option>
+                <option value="V2">V2</option>
+                <option value="V3">V3</option>
+                <option value="I">I</option>
+                <option value="III">III</option>
+            </select>
+            <button onclick="uploadFile2()">Upload and Plot</button>
+            <label>Point Color:
+                <input type="color" id="colorPicker2" value="#FF6347">
+            </label>
+
+
+            <!-- ✅ 进度条 B -->
+            <div id="progressContainer2" style="display: none; margin-top: 10px;">
+                <progress id="progressBar2" value="0" max="100" style="width: 90%;"></progress>
+                <span id="progressLabel2">Processing...</span>
+            </div>
+
+            <div id="plot2" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- ✅ 下载区域移到底部 -->
+    <div style="display: flex; gap: 5%; margin-top: 40px; border-top: 1px solid #ccc; padding-top: 20px;">
+
+        <!-- 🔽 导出区域 A -->
+        <div style="width: 45%;">
+            <h3>Download Options (Plot I)</h3>
+            <label><input type="checkbox" id="exportRpeaksA" checked> R-peaks</label>
+            <label><input type="checkbox" id="exportRRA" checked> RR Intervals</label>
+            <label><input type="checkbox" id="exportImageA" checked> Plot</label>
+            <select id="imageFormatA">
+                <option value="png">PNG</option>
+                <option value="svg">SVG</option>
+            </select>
+            <label><input type="checkbox" id="exportNormA" checked> Normalized</label>
+            <button onclick="handleExport('A')">Download I</button>
+        </div>
+
+        <!-- 🔽 导出区域 B -->
+        <div style="width: 45%;">
+            <h3>Download Options (Plot II)</h3>
+            <label><input type="checkbox" id="exportRpeaksB" checked> R-peaks</label>
+            <label><input type="checkbox" id="exportRRB" checked> RR Intervals</label>
+            <label><input type="checkbox" id="exportImageB" checked> Plot</label>
+            <select id="imageFormatB">
+                <option value="png">PNG</option>
+                <option value="svg">SVG</option>
+            </select>
+            <label><input type="checkbox" id="exportNormB" checked> Normalized</label>
+            <button onclick="handleExport('B')">Download II</button>
+        </div>
+    </div>
+
+
+    <!-- ✅ 脚本绑定 -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // 初始化左图为空图
+        window.onload = () => {
+            drawSimplexPlot([], "plot");
+            drawSimplexPlot([], "plot2");
+        };
+
+        document.getElementById("customFileButton").addEventListener("click", function () {
+            document.getElementById("fileInput").click();
+        });
+
+        document.getElementById("customFileButton2").addEventListener("click", () => {
+            document.getElementById("fileInput2").click();
+        });
+
+        function handleFileSelected(event) {
+            const file = event.target.files[0];
+            const box = document.getElementById("fileNameBox");
+            if (file) {
+                box.textContent = file.name;
+                box.title = file.name;
+            } else {
+                box.textContent = "No file selected";
+            }
+        }
+
+        document.getElementById("fileInput2").addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            const box = document.getElementById("fileNameBox2");
+            box.textContent = file ? file.name : "No file selected";
+            box.title = file ? file.name : "";
+        });
+
+        document.getElementById("uploadButton").addEventListener("click", function () {
+            const fileInput = document.getElementById("fileInput");
+            const lead = document.getElementById("leadSelector").value;
+
+            if (!fileInput.files.length) {
+                alert("Please select a file.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("lead", lead);
+
+            const progressBar = document.getElementById("progressBar");
+            const progressLabel = document.getElementById("progressLabel");
+            const progressContainer = document.getElementById("progressContainer");
+
+            progressBar.value = 10;
+            progressLabel.textContent = "Uploading...";
+            progressContainer.style.display = "flex";
+
+            fetch("/process", {
+                method: "POST",
+                body: formData,
+            })
+            .then((response) => {
+                if (!response.ok) throw new Error("Upload failed");
+                progressBar.value = 60;
+                progressLabel.textContent = "Plotting...";
+                return response.json();
+            })
+            .then((data) => {
+                const color1 = document.getElementById("colorPicker1").value;
+                drawSimplexPlot(data.normalized, "plot", color1);
+                baseName1 = data.basename;
+                hasUploadedA = true;
+
+                progressBar.value = 100;
+                progressLabel.textContent = "Done!";
+                setTimeout(() => {
+                    progressContainer.style.display = "none";
+                }, 1000);
+            })
+            .catch((error) => {
+                progressLabel.textContent = "Error: " + error.message;
+                setTimeout(() => {
+                    progressContainer.style.display = "none";
+                }, 3000);
+            });
+        });
+    
+        // 左图颜色监听
+        document.getElementById("colorPicker1").addEventListener("input", function () {
+            const newColor = this.value;
+            const points = document.querySelectorAll("#plot .simplex-point");
+            points.forEach(circle => circle.setAttribute("fill", newColor));
+        });
+
+        // 右图颜色监听
+        document.getElementById("colorPicker2").addEventListener("input", function () {
+            const newColor = this.value;
+            const points = document.querySelectorAll("#plot2 .simplex-point");
+            points.forEach(circle => circle.setAttribute("fill", newColor));
+        });
+
+    </script>
+</body>
+</html>
